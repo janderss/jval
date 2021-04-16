@@ -1,0 +1,43 @@
+#!/bin/bash
+
+
+# Set variables
+dependencylist="ansible-playbook"
+
+
+# Report dependencies
+[[ $1 == "--dependencies" ]] && { printf "$dependencylist\n"; exit 0; }
+
+
+# Get files
+cd "$2"
+
+if [[ $1 == "--dir" ]]; then
+    files=$(grep -rsI --files-with-matches "\- hosts:" --include \*.yml 2> /dev/null)
+elif [[ $1 == "--gitrepo" ]]; then
+    files=$(git diff --cached --name-only --diff-filter=AM -- \*.yml)
+    [[ ! -z $files ]] && files=$(grep -rsI --files-with-matches "\- hosts:" --include \*.yml 2> /dev/null)
+fi
+
+
+# Validate files
+if [[ ! -z $files ]]; then
+    printf "\nValidating Ansible playbooks:\n"
+    readarray -t files <<< "$(echo "$files" | sort)"
+
+    for entry in "${files[@]}"; do
+        printf "  * $entry... "
+        out=$(ansible-playbook --syntax-check "$entry" 2>&1)
+
+        if [[ $? == 0 ]]; then
+            printf "\e[32mValid\e[39m\n"
+        else
+            printf "\n\n\e[94m$(echo "$out" | sed '/^$/{n;/^$/d}' | sed 's/^/  /')\e[39m\n\n"
+            exit 1
+        fi
+    done
+fi
+
+
+# All good, exit with status 0
+exit 0

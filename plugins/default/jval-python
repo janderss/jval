@@ -1,0 +1,42 @@
+#!/bin/bash
+
+
+# Set variables
+dependencylist="python"
+
+
+# Report dependencies
+[[ $1 == "--dependencies" ]] && { printf "$dependencylist\n"; exit 0; }
+
+
+# Get files
+cd "$2"
+
+if [[ $1 == "--dir" ]]; then
+    files=$(find . -readable -type f -name '*.py' 2> /dev/null | cut -c3-)
+elif [[ $1 == "--gitrepo" ]]; then
+    files=$(git diff --cached --name-only --diff-filter=AM -- *.py 2> /dev/null)
+fi
+
+
+# Validate files
+if [[ ! -z $files ]]; then
+    printf "\nValidating Python scripts:\n"
+    readarray -t files <<< "$(echo "$files" | sort)"
+
+    for entry in "${files[@]}"; do
+        printf "  * $entry... "
+        out=$(python -c "import sys; src = open(sys.argv[1], 'r').read() + '\n'; compile(src, sys.argv[1], 'exec')" "$entry" 2>&1)
+
+        if [[ $? == 0 ]]; then
+            printf "\e[32mValid\e[39m\n"
+        else
+            printf "\n\n\e[94m$(echo "$out" | tail -n +3)\e[39m\n"
+            exit 1
+        fi
+    done
+fi
+
+
+# All good, exit with status 0
+exit 0

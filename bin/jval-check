@@ -1,0 +1,78 @@
+#!/bin/bash
+
+
+# Set variables
+targetdir=$(pwd)
+jvaldir=$(readlink -f $(dirname $(readlink -f $0))/..)
+[[ "$1" == "--dir" ]] && opt="--dir" || opt="--gitrepo"
+
+
+# Function: execPlugins(path, target, option)
+function execPlugins() {
+    for entry in $1/*; do
+        if [[ -e "$entry" ]]; then
+            ready=true
+            dependencylist=$("$entry" --dependencies)
+
+            for dependency in $dependencylist; do
+                if [[ $dependency == python:* ]]; then
+                    module=(${dependency//:/ })
+                    out=$(python -c "import ${module[1]}" 2>&1)
+                    [[ $? != 0 ]] && ready=false
+                else
+                    [[ -z $(which $dependency 2> /dev/null) ]] && ready=false
+                fi
+            done
+
+            if [[ $ready == true ]]; then
+                "$entry" $2 $3
+
+                if [[ $? != 0 ]]; then
+                    printf "\n\e[31mValidation failed in plugin: $(basename $entry)\e[39m\n"
+                    [[ $2 == "gitrepo" ]]; printf "\e[31mCommit canceled! To bypass validations: git commit --no-verify ...\e[39m\n"
+                    printf "\n"
+                    exit 1
+                fi
+            fi
+        fi
+    done
+}
+
+
+# Function: runLocalHook(target)
+function runLocalHook() {
+    if [[ -e "$1/.git/hooks/pre-commit.jlocal" ]]; then
+        printf "\nRunning local hook...\n\n"
+        "$1/.git/hooks/pre-commit.jlocal"
+        [[ $? == 0 ]] && { printf "\n"; exit 0; } || { printf "\n"; exit 1; }
+    fi
+}
+
+
+# Verify repo and show header
+if [[ $opt == "--gitrepo" ]]; then
+    [[ ! -d ".git" ]] && { printf "Target directory is not a Git repo.\n\n"; exit 1; }
+    printf "Jval validating files as needed in Git repository: $(basename $targetdir)\n"
+else
+    printf "Jval validating files recursively in directory: $targetdir\n"
+fi
+
+
+# Execute built in validation plugins
+execPlugins "$jvaldir/plugins/default" $opt "$targetdir"
+
+
+# Execute custom validation plugins
+execPlugins "$jvaldir/plugins/custom" $opt "$targetdir"
+
+
+# Validation completed
+printf "\n\e[32mValidation completed.\n\n\e[39m"
+
+
+# Run local hooks
+[[ $opt == "--gitrepo" ]] && runLocalHook "$targetdir"
+
+
+# All good, exit with status 0
+exit 0

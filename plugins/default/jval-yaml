@@ -1,0 +1,54 @@
+#!/bin/bash
+
+
+# Set variables
+dependencylist="python python:yaml"
+
+
+# Report dependencies
+[[ $1 == "--dependencies" ]] && { printf "$dependencylist\n"; exit 0; }
+
+
+# Get files
+cd "$2"
+
+if [[ $1 == "--dir" ]]; then
+    files=$(find . -type f -name '*.yml' 2> /dev/null | cut -c3-)
+elif [[ $1 == "--gitrepo" ]]; then
+    files=$(git diff --cached --name-only --diff-filter=AM -- \*.yml 2> /dev/null)
+fi
+
+
+# Python script for validation
+py="import yaml, sys
+try:
+    src = open(sys.argv[1], 'r').read() + '\n'
+    yaml.safe_load(src)
+except yaml.YAMLError as e:
+    raise e";
+
+
+# Validate files
+if [[ ! -z $files ]]; then
+    printf "\nValidating YAML scripts:\n"
+    readarray -t files <<< "$(echo "$files" | sort)"
+
+    for entry in "${files[@]}"; do
+        printf "  * $entry... "
+        out=$(python -c "$py" "$entry" 2>&1)
+
+        if [[ $? == 0 ]]; then
+            printf "\e[32mValid\e[39m\n"
+        else
+            out="${out//File \"<string>\", line/\\n  Line}"
+            out="${out//in \"<string>\", line/\\n  Line}"
+
+            printf "\n\n\e[94m$(echo "$out" | sed 's/^/  /')\e[39m\n"
+            exit 1
+        fi
+    done
+fi
+
+
+# All good, exit with status 0
+exit 0

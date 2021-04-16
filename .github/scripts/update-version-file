@@ -1,0 +1,18 @@
+#!/bin/bash
+
+
+# Set variables
+branch=$(git rev-parse --abbrev-ref HEAD)
+date=$(date +'%Y%m%d')
+seq=1
+
+
+# Update version file if on main branch
+if [[ $branch == "master" ]]; then
+    if [[ -e version ]]; then
+        readarray -t ver <<< "$(echo "$(<version)" | sed 's/:/\n/g; s/-/\n/g')"
+        [[ ${ver[1]} == $date ]] && { seq=${ver[2]}; ((seq++)); }
+    fi
+
+    echo "$branch:$date-$seq" > version
+fi

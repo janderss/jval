@@ -1,0 +1,227 @@
+#!/bin/bash
+
+
+# Set variables
+jvaldir=$(readlink -f $(dirname $(readlink -f $0))/..)
+
+
+# Function: getTargetDir(type, path)
+function getTargetDir() {
+    [[ -z $2 ]] && dir=$(pwd) || dir=$2
+    [[ ! -d $dir ]] && { printf "Invalid target directory.\n\n" 1>&2; return 1; }
+
+    dir="$(readlink -f "$dir")"
+    cd "$dir"
+
+    if [[ $1 == "gitrepo" ]]; then
+        if [[ ! -z $(which git 2> /dev/null) ]]; then
+            dir=$(git rev-parse --git-dir 2>&1)
+            [[ $? != 0 ]] && { printf "Target directory is not a Git repository.\n\n" 1>&2; return 1; }
+            dir="$dir/.."
+        else
+            [[ ! -d ".git" ]] && { printf "Target directory is not a Git repository\n\n" 1>&2; return 1; }
+        fi
+    elif [[ $1 == "auto" ]]; then
+        if [[ ! -z $(which git 2> /dev/null) ]]; then
+            repodir=$(git rev-parse --git-dir 2>&1)
+            [[ $? == 0 ]] && dir="$repodir/.."
+        fi
+    fi
+
+    echo "$(readlink -f "$dir")"
+    return 0
+}
+
+
+# Command: help
+if [[ -z $1 || $1 == "help" || $1 == "--help" || $1 == "-h" ]]; then
+    printf "Jval validates scripts and documents.\n"
+    printf "Usage: jval <command> [path]\n\n"
+    printf "Commands:\n"
+    printf "   install           Install Jval on a git repo's pre-commit hook\n"
+    printf "   uninstall         Uninstall Jval from repo\n"
+    printf "   enable-local      Enable local hook if present in repo\n"
+    printf "   disable-local     Disable local hook if present in repo\n"
+    printf "   check             Run validations recursively in path\n"
+    printf "   status            Show version, repo installation, and plugin status\n\n"
+    printf "Default [path] is current directory.\n\n"
+    exit 0
+fi
+
+
+# Command: install
+if [[ $1 == "install" ]]; then
+    dir=$(getTargetDir gitrepo "$2")
+
+    if [[ $? == 0 ]]; then
+        cd "$dir/.git/hooks"
+
+        if [[ -e "pre-commit" && ! -z $(readlink -f "pre-commit" | grep "/jval-check") ]]; then
+            printf "Already installed in repository: $(basename $dir)\n\n"
+        else
+            printf "Installing Jval to run on pre-commit in repository: $(basename $dir)\n"
+
+            if [[ -e "pre-commit" && ! -z $(readlink -f "pre-commit" | grep -v "/jval-check") ]]; then
+                mv "pre-commit" "pre-commit.jlocal"
+                printf "  * Renamed existing hook: .git/hooks/pre-commit -> .git/hooks/pre-commit.jlocal\n"
+            fi
+
+            ln -sf "$jvaldir/bin/jval-check" "pre-commit"
+            printf "  * Linked hook: .git/hook/pre-commit -> $jvaldir/jval-check\n\n"
+        fi
+
+        exit 0
+    fi
+
+    exit 1
+fi
+
+
+# Command: uninstall
+if [[ $1 == "uninstall" ]]; then
+    dir=$(getTargetDir gitrepo "$2")
+
+    if [[ $? == 0 ]]; then
+        cd "$dir/.git/hooks"
+
+        if [[ -e "pre-commit" && ! -z $(readlink -f "pre-commit" | grep "/jval-check") ]]; then
+            printf "Uninstalling Jhook from repository: $(basename $dir)\n"
+            rm "pre-commit"
+            printf "  * Removed linked hook: .git/hooks/pre-commit\n"
+
+            if [[ ! -e "pre-commit" && -e "pre-commit.jlocal" ]]; then
+                mv "pre-commit.jlocal" "pre-commit"
+                printf "  * Restored local hook: .git/hooks/pre-commit.jlocal -> .git/hooks/pre-commit\n"
+            elif [[ ! -e "pre-commit" && -e "pre-commit.jlocal.dis" ]]; then
+                mv "pre-commit.jlocal.dis" "pre-commit"
+                printf "  * Restored local hook: .git/hooks/pre-commit.jlocal.dis -> .git/hooks/pre-commit\n"
+            fi
+        else
+            printf "Nothing to uninstall from repository: $(basename $dir)\n"
+        fi
+
+        printf "\n"
+        exit 0
+    fi
+
+    exit 1
+fi
+
+
+# Command: enable-local
+if [[ $1 == "enable-local" ]]; then
+    dir=$(getTargetDir gitrepo "$2")
+
+    if [[ $? == 0 ]]; then
+        cd "$dir/.git/hooks"
+
+        if [[ -e "pre-commit.jlocal.dis" ]]; then
+            mv "pre-commit.jlocal.dis" "pre-commit.jlocal"
+            printf "local hook is enabled.\n\n"
+        elif [[ ! -e "pre-commit.jlocal" ]]; then
+            printf "No local hook to enable.\n\n"
+        else
+            printf "Local hook is already enabled.\n\n"
+        fi
+
+        exit 0
+    fi
+
+    exit 1
+fi
+
+
+# Command: disable-local
+if [[ $1 == "disable-local" ]]; then
+    dir=$(getTargetDir gitrepo "$2")
+
+    if [[ $? == 0 ]]; then
+        cd "$dir/.git/hooks"
+
+        if [[ -e "pre-commit.jlocal" ]]; then
+            mv "pre-commit.jlocal" "pre-commit.jlocal.dis"
+            printf "Local hook is disabled."
+        elif [[ ! -e "pre-commit.jlocal.dis" ]]; then
+            printf "No local hook to disable.\n\n"
+        else
+            printf "Local hook is already disabled.\n\n"
+        fi
+
+        exit 0
+    fi
+
+    exit 1
+fi
+
+
+# Command: check
+if [[ $1 == "check" ]]; then
+    dir=$(getTargetDir dir "$2")
+
+    if [[ $? == 0 ]]; then
+        cd "$dir"
+        source "$jvaldir/bin/jval-check" --dir
+    fi
+
+    exit 1
+fi
+
+
+# Command: status
+if [[ $1 == "status" ]]; then
+    printf "Jval version: $(<"$jvaldir/version")\n\n"
+
+    dir=$(getTargetDir auto "$2")
+
+    if [[ $? == 0 ]]; then
+        cd "$dir"
+        printf "Repo installation:\n"
+
+        if [[ ! -d ".git/hooks" ]]; then
+            printf "  * Target directory is not a Git repository\n\n"
+        else
+            if [[ -e ".git/hooks/pre-commit" && ! -z $(readlink -f ".git/hooks/pre-commit" | grep "/jval-check") ]]; then
+                printf "  * Installed in this repository and will run on commit\n"
+
+                if [[ -e ".git/hooks/pre-commit.jlocal" ]]; then
+                    printf "  * A local hook is present and enabled\n\n"
+                elif [[ -e ".git/hooks/pre-commit.jlocal.dir" ]]; then
+                    printf "  * A local hook is present and disabled\n\n"
+                else
+                    printf "  * No local hook is present\n\n"
+                fi
+            else
+                printf "  * Not installed in this repository\n\n"
+            fi
+        fi
+    fi
+
+    printf "Validation plugins:\n"
+
+    for entry in "$jvaldir/plugins/default"/* "$jvaldir/plugins/custom"/*; do
+        if [[ -e "$entry" ]]; then
+            missing=""
+            dependencylist=$("$entry" --dependencies)
+            printf "  \e[39m* $(basename "$entry")... "
+
+            for dependency in $dependencylist; do
+                if [[ $dependency == python:* ]]; then
+                    module=(${dependency//:/ })
+                    out=$(python -c "import ${module[1]}" 2>&1)
+                    [[ $? != 0 ]] && missing+=" $dependency"
+                else
+                    [[ -z $(which $entry 2> /dev/null) ]] && missing+=" $dependency"
+                fi
+            done
+
+            [[ -z $missing ]] && printf "\e[32mReady\n" || printf "\e[31mMissing dependencies:$missing\n"
+        fi
+    done
+
+    printf "\n\e[39m"
+    exit 0;
+fi
+
+
+# Unknown command
+printf "Unknown Jval command: $1\n\n"

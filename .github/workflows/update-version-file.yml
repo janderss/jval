@@ -1,0 +1,18 @@
+name: Update version file
+on:
+  push:
+    branches:
+      - master
+jobs:
+  main:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Update version file
+        run: ./.github/scripts/update-version-file
+      - name: Commit and push to repo
+        run: |
+          git config --local user.name "repobot"
+          git add -f version
+          git commit -m "Update version"
+          git push

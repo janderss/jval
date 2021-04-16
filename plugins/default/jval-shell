@@ -1,0 +1,41 @@
+#!/bin/bash
+
+
+# Set variables
+dependencylist="bash"
+
+
+# Report dependencies
+[[ $1 == "--dependencies" ]] && { printf "$dependencylist\n"; exit 0; }
+
+
+#  Get files
+cd "$2"
+
+if [[ $1 == "--dir" ]]; then
+    files=$(grep -rsI --files-with-matches --exclude-dir=.git -m1 -E '^#![ ]?/bin/(sh|bash)' 2> /dev/null | while read line; do awk 'NR==1&&/^#![ ]?\/bin\/(sh|bash)/{ print FILENAME }' "$line"; done)
+elif [[ $1 == "--gitrepo" ]]; then
+    files=$(git diff --cached --name-only --diff-filter=AM | xargs grep -I --files-with-matches -E '^#![ ]?/bin/(sh|bash)' 2> /dev/null)
+fi
+
+
+# Validate files
+if [[ ! -z $files ]]; then
+    printf "\nValidating Shell scripts:\n"
+    readarray -t files <<< "$(echo "$files" | sort)"
+
+    for entry in "${files[@]}"; do
+        printf "  * $entry... "
+        out=$(bash -n "$entry" 2>&1)
+
+        if [[ $? == 0 ]]; then
+            printf "\e[32mValid\e[39m\n"
+        else
+            printf "\n\n\e[94m$(echo "$out" | sed 's/^/  /')\e[39m\n"; exit 1
+        fi
+    done
+fi
+
+
+# All good, exit with status 0
+exit 0
