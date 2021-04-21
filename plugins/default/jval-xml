@@ -1,41 +1,36 @@
 #!/bin/bash
 
 
-# Set variables
-dependencylist="xmllint"
+function jvalPluginGetDependencies() {
+    echo "xmllint"
+}
 
 
-# Report dependencies
-[[ $1 == "--dependencies" ]] && { printf "$dependencylist\n"; exit 0; }
+function jvalPluginGetTargetFiles() {
+    targetType="$1"
+    targetPath="$2"
+
+    cd "$targetPath"
+
+    if [[ $targetType == "--dir" ]]; then
+        targetFiles=$(find . -readable -type f -name '*.xml' 2>/dev/null | cut -c3-)
+    elif [[ $1n == "--gitrepo" ]]; then
+        targetFiles=$(git diff --cached --name-only --diff-filter=AM -- \*.xml)
+    fi
+
+    echo "$targetFiles"
+}
 
 
-# Get files
-cd "$2"
-if [[ $1 == "--dir" ]]; then
-    files=$(find . -readable -type f -name '*.xml' 2> /dev/null | cut -c3-)
-elif [[ $1n == "--gitrepo" ]]; then
-    files=$(git diff --cached --name-only --diff-filter=AM -- \*.xml)
-fi
+function jvalPluginValidateFile() {
+    targetFile="$1"
 
+    result=$(xmllint --noout "$entry" 2>&1)
 
-# Validate files
-if [[ ! -z $files ]]; then
-    printf "\nValidating XML documents:\n"
-    readarray -t files <<< "$(echo "$files" | sort)"
-
-    for entry in "${files[@]}"; do
-        printf "  * $entry... "
-        out=$(xmllint --noout "$entry" 2>&1)
-
-        if [[ $? == 0 ]]; then
-            printf "\e[32mValid\e[39m\n"
-        else
-            printf "\n\n\e[94m$(echo "$out" | sed 's/^/  /')\e[39m\n"
-            exit 1
-        fi
-    done
-fi
-
-
-# All good, exit with status 0
-exit 0
+    if [[ $? == 0 ]]; then
+        exit 0
+    else
+        echo "$result" | sed 's/^/  /'
+        exit 1
+    fi
+}

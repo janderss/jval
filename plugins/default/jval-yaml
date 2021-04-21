@@ -1,54 +1,42 @@
 #!/bin/bash
 
 
-# Set variables
-dependencylist="python python:yaml"
+function jvalPluginGetDependencies() {
+    echo "python python:yaml"
+}
 
 
-# Report dependencies
-[[ $1 == "--dependencies" ]] && { printf "$dependencylist\n"; exit 0; }
+function jvalPluginGetTargetFiles() {
+    targetType="$1"
+    targetPath="$2"
+
+    cd "$targetPath"
+
+    if [[ $targetType == "--dir" ]]; then
+        targetFiles=$(find . -type f -name '*.yml' 2>/dev/null | cut -c3-)
+    elif [[ $1 == "--gitrepo" ]]; then
+        targetFiles=$(git diff --cached --name-only --diff-filter=AM -- \*.yml)
+    fi
+
+    echo "$targetFiles"
+}
 
 
-# Get files
-cd "$2"
+function jvalPluginValidateFile() {
+    targetFile="$1"
 
-if [[ $1 == "--dir" ]]; then
-    files=$(find . -type f -name '*.yml' 2> /dev/null | cut -c3-)
-elif [[ $1 == "--gitrepo" ]]; then
-    files=$(git diff --cached --name-only --diff-filter=AM -- \*.yml 2> /dev/null)
-fi
-
-
-# Python script for validation
-py="import yaml, sys
+    py="import yaml, sys
 try:
-    src = open(sys.argv[1], 'r').read() + '\n'
-    yaml.safe_load(src)
+    src = open(sys.argv[1], 'r').read() + '\n'; yaml.safe_load(src)
 except yaml.YAMLError as e:
     raise e";
 
+    result=$(python -c "$py" "$entry" 2>&1)
 
-# Validate files
-if [[ ! -z $files ]]; then
-    printf "\nValidating YAML scripts:\n"
-    readarray -t files <<< "$(echo "$files" | sort)"
-
-    for entry in "${files[@]}"; do
-        printf "  * $entry... "
-        out=$(python -c "$py" "$entry" 2>&1)
-
-        if [[ $? == 0 ]]; then
-            printf "\e[32mValid\e[39m\n"
-        else
-            out="${out//File \"<string>\", line/\\n  Line}"
-            out="${out//in \"<string>\", line/\\n  Line}"
-
-            printf "\n\n\e[94m$(echo "$out" | sed 's/^/  /')\e[39m\n"
-            exit 1
-        fi
-    done
-fi
-
-
-# All good, exit with status 0
-exit 0
+    if [[ $? == 0 ]]; then
+        exit 0
+    else
+        echo "$result" | sed 's/^/  /'
+        exit 1
+    fi
+}

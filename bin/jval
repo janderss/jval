@@ -200,26 +200,35 @@ if [[ $1 == "status" ]]; then
 
     for entry in "$jvaldir/plugins/default"/* "$jvaldir/plugins/custom"/*; do
         if [[ -e "$entry" ]]; then
-            missing=""
-            dependencylist=$("$entry" --dependencies)
             printf "  \e[39m* $(basename "$entry")... "
+            unset jvalPluginGetDependencies jvalPluginGetTargetFiles jvalPluginValidateFile
+            . "$entry"
 
-            for dependency in $dependencylist; do
-                if [[ $dependency == python:* ]]; then
-                    module=(${dependency//:/ })
-                    out=$(python -c "import ${module[1]}" 2>&1)
-                    [[ $? != 0 ]] && missing+=" $dependency"
-                else
-                    [[ -z $(which $entry 2> /dev/null) ]] && missing+=" $dependency"
-                fi
-            done
+            if typeset -f jvalPluginGetDependencies >/dev/null &&
+                typeset -f jvalPluginGetTargetFiles >/dev/null &&
+                typeset -f jvalPluginValidateFile >/dev/null; then
 
-            [[ -z $missing ]] && printf "\e[32mReady\n" || printf "\e[31mMissing dependencies:$missing\n"
+                deplist=$(jvalPluginGetDependencies)
+                depmissing=""
+
+                for dependency in $deplist; do
+                    if [[ $dependency == python:* ]]; then
+                        out=$(python -c "import ${dependency:7}" 2>&1)
+                        [[ $? != 0 ]] && depmissing+=" $dependency"
+                    elif [[ $dependency != "dependencies:" ]]; then
+                        [[ -z $(which $dependency 2> /dev/null) ]] && depmissing+=" $dependency"
+                    fi
+                done
+
+                [[ -z $depmissing ]] && printf "\e[32mReady\n" || printf "\e[91mMissing dependencies:$depmissing\n"
+            else
+                printf "\e[91mNon-compliant\n"
+            fi
         fi
     done
 
     printf "\n\e[39m"
-    exit 0;
+    exit 0
 fi
 
 

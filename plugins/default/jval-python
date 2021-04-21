@@ -1,42 +1,36 @@
 #!/bin/bash
 
 
-# Set variables
-dependencylist="python"
+function jvalPluginGetDependencies() {
+    echo "python"
+}
 
 
-# Report dependencies
-[[ $1 == "--dependencies" ]] && { printf "$dependencylist\n"; exit 0; }
+function jvalPluginGetTargetFiles() {
+    targetType="$1"
+    targetPath="$2"
+
+    cd "$targetPath"
+
+    if [[ $targetType == "--dir" ]]; then
+        targetFiles=$(find . -readable -type f -name '*.py' 2>/dev/null | cut -c3-)
+    elif [[ $1 == "--gitrepo" ]]; then
+        targetFiles=$(git diff --cached --name-only --diff-filter=AM -- \*.py)
+    fi
+
+    echo "$targetFiles"
+}
 
 
-# Get files
-cd "$2"
+function jvalPluginValidateFile() {
+    targetFile="$1"
 
-if [[ $1 == "--dir" ]]; then
-    files=$(find . -readable -type f -name '*.py' 2> /dev/null | cut -c3-)
-elif [[ $1 == "--gitrepo" ]]; then
-    files=$(git diff --cached --name-only --diff-filter=AM -- *.py 2> /dev/null)
-fi
+    result=$(python -c "import sys; src = open(sys.argv[1], 'r').read() + '\n'; compile(src, sys.argv[1], 'exec')" "$targetFile" 2>&1)
 
-
-# Validate files
-if [[ ! -z $files ]]; then
-    printf "\nValidating Python scripts:\n"
-    readarray -t files <<< "$(echo "$files" | sort)"
-
-    for entry in "${files[@]}"; do
-        printf "  * $entry... "
-        out=$(python -c "import sys; src = open(sys.argv[1], 'r').read() + '\n'; compile(src, sys.argv[1], 'exec')" "$entry" 2>&1)
-
-        if [[ $? == 0 ]]; then
-            printf "\e[32mValid\e[39m\n"
-        else
-            printf "\n\n\e[94m$(echo "$out" | tail -n +3)\e[39m\n"
-            exit 1
-        fi
-    done
-fi
-
-
-# All good, exit with status 0
-exit 0
+    if [[ $? == 0 ]]; then
+        exit 0
+    else
+        echo "$result" | sed 's/^/  /'
+        exit 1
+    fi
+}

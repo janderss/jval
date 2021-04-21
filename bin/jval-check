@@ -2,36 +2,66 @@
 
 
 # Set variables
-targetdir=$(pwd)
-jvaldir=$(readlink -f $(dirname $(readlink -f $0))/..)
+targetDir=$(pwd)
+jvalDir=$(readlink -f $(dirname $(readlink -f $0))/..)
 [[ "$1" == "--dir" ]] && opt="--dir" || opt="--gitrepo"
 
 
-# Function: execPlugins(path, target, option)
-function execPlugins() {
-    for entry in $1/*; do
-        if [[ -e "$entry" ]]; then
-            ready=true
-            dependencylist=$("$entry" --dependencies)
+# Function: gracefulExit
+function gracefulExit() {
+    printf "\n\n\e[39m"
+    tput cnorm
+}
 
-            for dependency in $dependencylist; do
-                if [[ $dependency == python:* ]]; then
-                    module=(${dependency//:/ })
-                    out=$(python -c "import ${module[1]}" 2>&1)
-                    [[ $? != 0 ]] && ready=false
-                else
-                    [[ -z $(which $dependency 2> /dev/null) ]] && ready=false
-                fi
-            done
+
+# Function: execPlugins(pluginPath, targetType, targetPath)
+function execPlugins() {
+    progressBar="##################################################"
+    progressBgr="--------------------------------------------------"
+    el=$(tput el)
+
+    for pluginEntry in $1/*; do
+        if [[ -e "$pluginEntry" ]]; then
+            ready=true
+            unset jvalPluginValidateFile jvalPluginGetTargetFiles jvalPluginValidateFile
+            . "$pluginEntry" $2 $3
+
+            if typeset -f jvalPluginGetDependencies >/dev/null; then
+                for dependency in $(jvalPluginGetDependencies); do
+                    if [[ $dependency == python:* ]]; then
+                        out=$(python -c "import ${dependency:7}" 2>&1)
+                        [[ $? != 0 ]] && ready=false
+                    else
+                        [[ -z $(which $dependency 2> /dev/null) ]] && ready=false
+                    fi
+                done
+            fi
 
             if [[ $ready == true ]]; then
-                "$entry" $2 $3
+                if typeset -f jvalPluginGetTargetFiles >/dev/null && typeset -f jvalPluginValidateFile >/dev/null; then
+                    files=$(jvalPluginGetTargetFiles $2 $3)
 
-                if [[ $? != 0 ]]; then
-                    printf "\n\e[31mValidation failed in plugin: $(basename $entry)\e[39m\n"
-                    [[ $2 == "gitrepo" ]]; printf "\e[31mCommit canceled! To bypass validations: git commit --no-verify ...\e[39m\n"
-                    printf "\n"
-                    exit 1
+                    if [[ ! -z $files ]]; then
+                        printf "\n\e[39mValidating files with plugin: $(basename $pluginEntry)$el\n"
+                        readarray -t files <<< "$(echo "$files" | sort)"
+                        i=0; n=${#files[@]}
+
+                        for entry in "${files[@]}"; do
+                            progressPercentile=$(awk "BEGIN { print int($i / $n * 100) }")
+                            progressChars=$(awk "BEGIN { print int($i / $n * 50) }")
+                            printf "\e[39m  * $entry... $el\n$el\n\e[94m  $((++i))/$n [${progressBar:0:$progressChars}${progressBgr:0:$(expr 50 - $progressChars)}] $progressPercentile%% "
+
+                            pluginOutput=$(jvalPluginValidateFile "$entry")
+
+                            if [[ $? == 0 ]]; then
+                                printf "\r\033[2A\e[39m  * $entry... \e[32mValid$el\n$el"
+                            else
+                                printf "\r$el\e[94m$pluginOutput\e[39m\n\n\e[91mValidation fail raised in plugin: $(basename $pluginEntry)"
+                                [[ $2 == "gitrepo" ]]; printf "\n\e[91mCommit canceled! To bypass validations: git commit --no-verify ...\e[39m"
+                                exit 1
+                            fi
+                        done
+                    fi
                 fi
             fi
         fi
@@ -39,7 +69,7 @@ function execPlugins() {
 }
 
 
-# Function: runLocalHook(target)
+# Function: runLocalHook(targetPath)
 function runLocalHook() {
     if [[ -e "$1/.git/hooks/pre-commit.jlocal" ]]; then
         printf "\nRunning local hook...\n\n"
@@ -49,30 +79,32 @@ function runLocalHook() {
 }
 
 
+# Hide cursor during execution
+trap gracefulExit EXIT
+tput civis
+
+
 # Verify repo and show header
 if [[ $opt == "--gitrepo" ]]; then
     [[ ! -d ".git" ]] && { printf "Target directory is not a Git repo.\n\n"; exit 1; }
-    printf "Jval validating files as needed in Git repository: $(basename $targetdir)\n"
+    printf "Jval validating in Git repository: $(basename $targetDir)\n"
 else
-    printf "Jval validating files recursively in directory: $targetdir\n"
+    printf "Jval validating recursively in directory: $targetDir\n"
 fi
 
 
-# Execute built in validation plugins
-execPlugins "$jvaldir/plugins/default" $opt "$targetdir"
-
-
-# Execute custom validation plugins
-execPlugins "$jvaldir/plugins/custom" $opt "$targetdir"
+# Execute validation plugins
+execPlugins "$jvalDir/plugins/default" $opt "$targetDir"
+execPlugins "$jvalDir/plugins/custom" $opt "$targetDir"
 
 
 # Validation completed
-printf "\n\e[32mValidation completed.\n\n\e[39m"
+printf "\n\e[32mValidation completed.$(tput el)"
 
 
-# Run local hooks
-[[ $opt == "--gitrepo" ]] && runLocalHook "$targetdir"
+# Run local hook
+[[ $opt == "--gitrepo" ]] && runLocalHook "$targetDir"
 
 
-# All good, exit with status 0
+# Exit with status 0
 exit 0

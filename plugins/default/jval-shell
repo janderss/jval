@@ -1,41 +1,36 @@
 #!/bin/bash
 
 
-# Set variables
-dependencylist="bash"
+function jvalPluginGetDependencies() {
+    echo "bash"
+}
 
 
-# Report dependencies
-[[ $1 == "--dependencies" ]] && { printf "$dependencylist\n"; exit 0; }
+function jvalPluginGetTargetFiles() {
+    targetType="$1"
+    targetPath="$2"
+
+    cd "$targetPath"
+
+    if [[ $targetType == "--dir" ]]; then
+        targetFiles=$(grep -rsI --files-with-matches --exclude-dir=.git -m1 -E '^#![ ]?/bin/(sh|bash)' 2> /dev/null | while read line; do awk 'NR==1&&/^#![ ]?\/bin\/(sh|bash)/{ print FILENAME }' "$line"; done)
+    elif [[ $targetType == "--gitrepo" ]]; then
+        targetFiles=$(git diff --cached --name-only --diff-filter=AM | xargs grep -I --files-with-matches -E '^#![ ]?/bin/(sh|bash)' 2>/dev/null)
+    fi
+
+    echo "$targetFiles"
+}
 
 
-#  Get files
-cd "$2"
+function jvalPluginValidateFile() {
+    targetFile="$1"
 
-if [[ $1 == "--dir" ]]; then
-    files=$(grep -rsI --files-with-matches --exclude-dir=.git -m1 -E '^#![ ]?/bin/(sh|bash)' 2> /dev/null | while read line; do awk 'NR==1&&/^#![ ]?\/bin\/(sh|bash)/{ print FILENAME }' "$line"; done)
-elif [[ $1 == "--gitrepo" ]]; then
-    files=$(git diff --cached --name-only --diff-filter=AM | xargs grep -I --files-with-matches -E '^#![ ]?/bin/(sh|bash)' 2> /dev/null)
-fi
+    result=$(bash -n "$targetFile" 2>&1)
 
-
-# Validate files
-if [[ ! -z $files ]]; then
-    printf "\nValidating Shell scripts:\n"
-    readarray -t files <<< "$(echo "$files" | sort)"
-
-    for entry in "${files[@]}"; do
-        printf "  * $entry... "
-        out=$(bash -n "$entry" 2>&1)
-
-        if [[ $? == 0 ]]; then
-            printf "\e[32mValid\e[39m\n"
-        else
-            printf "\n\n\e[94m$(echo "$out" | sed 's/^/  /')\e[39m\n"; exit 1
-        fi
-    done
-fi
-
-
-# All good, exit with status 0
-exit 0
+    if [[ $? == 0 ]]; then
+        exit 0
+    else
+        echo "$result" | sed 's/^/  /'
+        exit 1
+    fi
+}
