@@ -56,8 +56,8 @@ function execPlugins() {
                             if [[ $? == 0 ]]; then
                                 printf "\r\033[2A\e[39m  * $entry... \e[32mValid$el\n$el"
                             else
-                                printf "\r$el\e[94m$pluginOutput\e[39m\n\n\e[91mValidation fail raised in plugin: $(basename $pluginEntry)"
-                                [[ $2 == "gitrepo" ]]; printf "\n\e[91mCommit canceled! To bypass validations: git commit --no-verify ...\e[39m"
+                                printf "\r$el\e[94m$(echo "$pluginOutput" | sed 's/^/  /')\e[39m\n\n\e[91m  Validation fail raised in plugin: $(basename $pluginEntry)"
+                                [[ $2 == "gitrepo" ]]; printf "\n\e[91m  Commit canceled! To bypass validations: git commit --no-verify ...\e[39m"
                                 exit 1
                             fi
                         done
@@ -87,9 +87,9 @@ tput civis
 # Verify repo and show header
 if [[ $opt == "--gitrepo" ]]; then
     [[ ! -d ".git" ]] && { printf "Target directory is not a Git repo.\n\n"; exit 1; }
-    printf "Jval validating in Git repository: $(basename $targetDir)\n"
+    printf "Jval running in Git repository: $(basename $targetDir)\n"
 else
-    printf "Jval validating recursively in directory: $targetDir\n"
+    printf "Jval running recursively in directory: $targetDir\n"
 fi
 
 

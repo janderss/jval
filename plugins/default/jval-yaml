@@ -36,7 +36,7 @@ except yaml.YAMLError as e:
     if [[ $? == 0 ]]; then
         exit 0
     else
-        echo "$result" | sed 's/^/  /'
+        echo "$result"
         exit 1
     fi
 }
