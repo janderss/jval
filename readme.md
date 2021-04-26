@@ -62,3 +62,17 @@ status            Show version, repo installation, and plugin status
 ```
 
 Default *[path]* is current directory.
+
+
+## Validation plugins ##
+
+Default validation plugins and dependencies:
+```
+jval-ansible      ansible-playbook
+jval-python       python
+jval-shell        -
+jval-xml          xmllint
+jval-yaml         python, python:yaml
+```
+
+Further validations can be added by placing custom plugins in *plugins/custom/.
