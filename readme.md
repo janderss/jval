@@ -75,4 +75,4 @@ jval-xml          xmllint
 jval-yaml         python, python:yaml
 ```
 
-Further validations can be added by placing custom plugins in *plugins/custom/.
+Further validations can be added by placing custom plugins in *plugins/custom/*.
