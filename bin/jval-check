@@ -4,7 +4,7 @@
 # Set variables
 targetDir=$(pwd)
 jvalDir=$(readlink -f $(dirname $(readlink -f $0))/..)
-[[ "$1" == "--dir" ]] && opt="--dir" || opt="--gitrepo"
+[[ "$1" == "--dir" ]] && opt="dir" || opt="gitrepo"
 
 
 # Function: gracefulExit
@@ -85,7 +85,7 @@ tput civis
 
 
 # Verify repo and show header
-if [[ $opt == "--gitrepo" ]]; then
+if [[ $opt == "gitrepo" ]]; then
     [[ ! -d ".git" ]] && { printf "Target directory is not a Git repo.\n\n"; exit 1; }
     printf "Jval running in Git repository: $(basename $targetDir)\n"
 else
@@ -103,7 +103,7 @@ printf "\n\e[32mValidation completed.$(tput el)"
 
 
 # Run local hook
-[[ $opt == "--gitrepo" ]] && runLocalHook "$targetDir"
+[[ $opt == "gitrepo" ]] && runLocalHook "$targetDir"
 
 
 # Exit with status 0

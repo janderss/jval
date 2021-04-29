@@ -12,9 +12,9 @@ function jvalPluginGetTargetFiles() {
 
     cd "$targetPath"
 
-    if [[ $targetType == "--dir" ]]; then
+    if [[ $targetType == "dir" ]]; then
         targetFiles=$(find . -type f -name '*.yml' 2>/dev/null | cut -c3-)
-    elif [[ $1 == "--gitrepo" ]]; then
+    elif [[ $targetType == "gitrepo" ]]; then
         targetFiles=$(git diff --cached --name-only --diff-filter=AM -- \*.yml)
     fi
 

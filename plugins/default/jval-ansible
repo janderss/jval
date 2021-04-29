@@ -12,11 +12,11 @@ function jvalPluginGetTargetFiles() {
 
     cd "$targetPath"
 
-    if [[ $targetType == "--dir" ]]; then
-        targetFiles=$(grep -rsI --files-with-matches "\- hosts:" --include \*.yml 2>/dev/null)
-    elif [[ $1 == "--gitrepo" ]]; then
+    if [[ $targetType == "dir" ]]; then
+        targetFiles=$(grep -rsI --files-with-matches --include='*.yml' '\- hosts:' 2>/dev/null)
+    elif [[ $targetType == "gitrepo" ]]; then
         targetFiles=$(git diff --cached --name-only --diff-filter=AM -- \*.yml)
-        [[ ! -z $targetFiles ]] && targetFiles=$(grep -rsI --files-with-matches "\- hosts:" --include \*.yml 2>/dev/null)
+        [[ ! -z $targetFiles ]] && targetFiles=$(grep -rsI --files-with-matches --include='*.yml' '\- hosts:' 2>/dev/null)
     fi
 
     echo "$targetFiles"

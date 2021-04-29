@@ -2,7 +2,7 @@
 
 
 # Set variables
-jvaldir=$(readlink -f $(dirname $(readlink -f $0))/..)
+jvalDir=$(readlink -f $(dirname $(readlink -f $0))/..)
 
 
 # Function: getTargetDir(type, path)
@@ -66,8 +66,8 @@ if [[ $1 == "install" ]]; then
                 printf "  * Renamed existing hook: .git/hooks/pre-commit -> .git/hooks/pre-commit.jlocal\n"
             fi
 
-            ln -sf "$jvaldir/bin/jval-check" "pre-commit"
-            printf "  * Linked hook: .git/hook/pre-commit -> $jvaldir/jval-check\n\n"
+            ln -sf "$jvalDir/bin/jval-check" "pre-commit"
+            printf "  * Linked hook: .git/hook/pre-commit -> $jvalDir/jval-check\n\n"
         fi
 
         exit 0
@@ -160,7 +160,7 @@ if [[ $1 == "check" ]]; then
 
     if [[ $? == 0 ]]; then
         cd "$dir"
-        source "$jvaldir/bin/jval-check" --dir
+        source "$jvalDir/bin/jval-check" --dir
     fi
 
     exit 1
@@ -169,7 +169,7 @@ fi
 
 # Command: status
 if [[ $1 == "status" ]]; then
-    printf "Jval version: $(<"$jvaldir/version")\n\n"
+    printf "Jval version: $(<"$jvalDir/version")\n\n"
 
     dir=$(getTargetDir auto "$2")
 
@@ -198,7 +198,7 @@ if [[ $1 == "status" ]]; then
 
     printf "Validation plugins:\n"
 
-    for entry in "$jvaldir/plugins/default"/* "$jvaldir/plugins/custom"/*; do
+    for entry in "$jvalDir/plugins/default"/* "$jvalDir/plugins/custom"/*; do
         if [[ -e "$entry" ]]; then
             printf "  \e[39m* $(basename "$entry")... "
             unset jvalPluginGetDependencies jvalPluginGetTargetFiles jvalPluginValidateFile
@@ -208,19 +208,19 @@ if [[ $1 == "status" ]]; then
                 typeset -f jvalPluginGetTargetFiles >/dev/null &&
                 typeset -f jvalPluginValidateFile >/dev/null; then
 
-                deplist=$(jvalPluginGetDependencies)
-                depmissing=""
+                depList=$(jvalPluginGetDependencies)
+                depMissing=""
 
-                for dependency in $deplist; do
+                for dependency in $depList; do
                     if [[ $dependency == python:* ]]; then
                         out=$(python -c "import ${dependency:7}" 2>&1)
-                        [[ $? != 0 ]] && depmissing+=" $dependency"
+                        [[ $? != 0 ]] && depMissing+=" $dependency"
                     elif [[ $dependency != "dependencies:" ]]; then
-                        [[ -z $(which $dependency 2> /dev/null) ]] && depmissing+=" $dependency"
+                        [[ -z $(which $dependency 2> /dev/null) ]] && depMissing+=" $dependency"
                     fi
                 done
 
-                [[ -z $depmissing ]] && printf "\e[32mReady\n" || printf "\e[91mMissing dependencies:$depmissing\n"
+                [[ -z $depMissing ]] && printf "\e[32mReady\n" || printf "\e[91mMissing dependencies:$depMissing\n"
             else
                 printf "\e[91mNon-compliant\n"
             fi

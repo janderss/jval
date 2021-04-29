@@ -12,10 +12,10 @@ function jvalPluginGetTargetFiles() {
 
     cd "$targetPath"
 
-    if [[ $targetType == "--dir" ]]; then
-        targetFiles=$(grep -rsI --files-with-matches --exclude-dir=.git -m1 -E '^#![ ]?/bin/(sh|bash)' 2> /dev/null | while read line; do awk 'NR==1&&/^#![ ]?\/bin\/(sh|bash)/{ print FILENAME }' "$line"; done)
-    elif [[ $targetType == "--gitrepo" ]]; then
-        targetFiles=$(git diff --cached --name-only --diff-filter=AM | xargs grep -I --files-with-matches -E '^#![ ]?/bin/(sh|bash)' 2>/dev/null)
+    if [[ $targetType == "dir" ]]; then
+        targetFiles=$(grep -rsI --files-with-matches --exclude-dir='.git' --exclude='*.*' --include='*.sh' -m1 -E '^#![ ]?/bin/(sh|bash)' 2> /dev/null | while read line; do awk 'NR==1&&/^#![ ]?\/bin\/(sh|bash)/{ print FILENAME }' "$line"; done)
+    elif [[ $targetType == "gitrepo" ]]; then
+        targetFiles=$(git diff --cached --name-only --diff-filter=AM | xargs grep -I --files-with-matches --exclude='*.*' --include='*.sh' -E '^#![ ]?/bin/(sh|bash)' 2>/dev/null)
     fi
 
     echo "$targetFiles"
