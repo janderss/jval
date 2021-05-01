@@ -24,7 +24,8 @@ function execPlugins() {
         if [[ -e "$pluginEntry" ]]; then
             ready=true
             unset jvalPluginValidateFile jvalPluginGetTargetFiles jvalPluginValidateFile
-            . "$pluginEntry" $2 $3
+
+            . "$pluginEntry"
 
             if typeset -f jvalPluginGetDependencies >/dev/null; then
                 for dependency in $(jvalPluginGetDependencies); do
@@ -39,24 +40,24 @@ function execPlugins() {
 
             if [[ $ready == true ]]; then
                 if typeset -f jvalPluginGetTargetFiles >/dev/null && typeset -f jvalPluginValidateFile >/dev/null; then
-                    files=$(jvalPluginGetTargetFiles $2 $3)
+                    files=$(jvalPluginGetTargetFiles "$2" "$3")
 
                     if [[ ! -z $files ]]; then
-                        printf "\n\e[39mValidating files with plugin: $(basename $pluginEntry)$el\n"
+                        printf "\n\e[39mValidating files with plugin: $(basename "$pluginEntry")$el\n"
                         readarray -t files <<< "$(echo "$files" | sort)"
                         i=0; n=${#files[@]}
 
                         for entry in "${files[@]}"; do
                             progressPercentile=$(awk "BEGIN { print int($i / $n * 100) }")
                             progressChars=$(awk "BEGIN { print int($i / $n * 50) }")
-                            printf "\e[39m  * $entry... $el\n$el\n\e[94m  $((++i))/$n [${progressBar:0:$progressChars}${progressBgr:0:$(expr 50 - $progressChars)}] $progressPercentile%% / $(basename $pluginEntry)"
+                            printf "\e[39m  * $entry... $el\n$el\n\e[94m  $((++i))/$n [${progressBar:0:$progressChars}${progressBgr:0:$(expr 50 - $progressChars)}] $progressPercentile%% / $(basename "$pluginEntry")"
 
                             pluginOutput=$(jvalPluginValidateFile "$entry")
 
                             if [[ $? == 0 ]]; then
                                 printf "\r\033[2A\e[39m  * $entry... \e[32mValid$el\n$el"
                             else
-                                printf "\r$el\e[94m$(echo "$pluginOutput" | sed 's/^/  /')\e[39m\n\n\e[91m  Validation fail raised in plugin: $(basename $pluginEntry)"
+                                printf "\r$el\e[94m$(echo "$pluginOutput" | sed 's/^/  /')\e[39m\n\n\e[91m  Validation fail raised in plugin: $(basename "$pluginEntry")"
                                 [[ $2 == "gitrepo" ]]; printf "\n\e[91m  Commit canceled! To bypass validations: git commit --no-verify ...\e[39m"
                                 exit 1
                             fi
