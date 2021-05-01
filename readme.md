@@ -3,10 +3,8 @@
 **Script/document validations on Linux, running standalone or on Git's pre-commit hook.**
 
 On a commit, the following actions are performed:
-* Any staged Python script is validated
-* Any staged Shell script is validated
+* Any staged Python/Shell/YAML script is validated
 * Any staged XML document is validated
-* Any staged YAML script is validated
 * Any Ansible playbook found in the repo is validated as needed
 * A validation failure will abort the commit
 

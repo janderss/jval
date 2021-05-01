@@ -49,7 +49,7 @@ function execPlugins() {
                         for entry in "${files[@]}"; do
                             progressPercentile=$(awk "BEGIN { print int($i / $n * 100) }")
                             progressChars=$(awk "BEGIN { print int($i / $n * 50) }")
-                            printf "\e[39m  * $entry... $el\n$el\n\e[94m  $((++i))/$n [${progressBar:0:$progressChars}${progressBgr:0:$(expr 50 - $progressChars)}] $progressPercentile%% "
+                            printf "\e[39m  * $entry... $el\n$el\n\e[94m  $((++i))/$n [${progressBar:0:$progressChars}${progressBgr:0:$(expr 50 - $progressChars)}] $progressPercentile%% / $(basename $pluginEntry)"
 
                             pluginOutput=$(jvalPluginValidateFile "$entry")
 
